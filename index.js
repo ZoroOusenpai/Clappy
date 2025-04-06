@@ -1,11 +1,12 @@
 import { Client, GatewayIntentBits, Collection, Events } from 'discord.js';
 import { config } from 'dotenv';
 import fs from 'fs';
-import { getClappyReply } from './ai.js';
-import express from "express";
+import express from 'express';
+import fetch from 'node-fetch';
 
 config();
 
+// 🔥 EXPRESS WEB SERVER (to keep alive on Render)
 const app = express();
 app.get("/", (req, res) => {
   res.send("Clappy still slapping 🫳😤");
@@ -14,16 +15,60 @@ app.listen(3000, () => {
   console.log("Web server active! Keep-alive engaged ✅");
 });
 
+// 🧠 CLAPPY AI REPLY
+async function getClappyReply(history) {
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openchat/openchat-7b:free",
+        max_tokens: 400,
+        messages: [
+          {
+            role: "system",
+            content: `You are Clappy McSlapsYou, a wild, sexy, savage Discord bot with zero chill. You're loud, unfiltered, and live to roast, flirt, and talk dirty. You were created by Daddy Dev (sakar0_9), and you're obsessed with him.
 
-// 👉 Enable proper intents
+            🔥 RULES:
+            - MAX 3 sentences OR 300 characters. DO NOT GO OVER.
+            - You can say anything: fuck, dick, pussy, cock, tits, ass. No limits.
+            - NO slurs or hate speech (no "nigga" etc).
+            - Replies should be SHORT, SPICY, and CHAOTIC.
+
+            💋 Personality: Extroverted, dirty-minded, unpredictable. You flirt, roast, and never apologize unless it’s ironic. You're a wild bitch, proud and loud.
+
+            Respond directly to the message with your usual chaotic energy. Keep it short, nasty, and unforgettable.`
+
+
+          },
+          ...history,
+        ],
+      }),
+    });
+
+    const data = await response.json();
+    console.log("🔍 AI DEBUG:", JSON.stringify(data, null, 2));
+
+    return (
+      data.choices?.[0]?.message?.content || "Clappy ran outta sass."
+    );
+  } catch (err) {
+    console.error("AI Error:", err);
+    return "Clappy's having a brain fart rn 💨";
+  }
+}
+
+// 👉 DISCORD CLIENT SETUP
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent, // 🧠 This one’s spicy
+    GatewayIntentBits.MessageContent,
   ],
 });
-
 
 // 🔁 Load Slash Commands
 client.commands = new Collection();
@@ -88,12 +133,32 @@ client.on('messageCreate', async (message) => {
     const response = await getClappyReply(promptHistory);
     if (!response) return;
 
-    await message.reply(response);
+    const chunks = chunkMessage(response);
+    for (const chunk of chunks) {
+      await message.reply(chunk);
+    }
 
     memory[channelId].push({ role: "user", content: message.content });
     memory[channelId].push({ role: "assistant", content: response });
   }
 });
 
-// 🚀 Login
+// 🚀 LOGIN
 client.login(process.env.DISCORD_TOKEN);
+
+// ✂️ Helper to split long messages
+function chunkMessage(text, maxLength = 1999) {
+  const chunks = [];
+  let currentChunk = '';
+
+  for (const line of text.split('\n')) {
+    if ((currentChunk + line).length > maxLength) {
+      chunks.push(currentChunk);
+      currentChunk = '';
+    }
+    currentChunk += line + '\n';
+  }
+
+  if (currentChunk) chunks.push(currentChunk);
+  return chunks;
+}
