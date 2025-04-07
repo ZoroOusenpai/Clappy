@@ -1,22 +1,29 @@
-import { Client, GatewayIntentBits, Collection, Events } from 'discord.js';
-import { config } from 'dotenv';
-import fs from 'fs';
-import express from 'express';
-import fetch from 'node-fetch';
+  import { Client, GatewayIntentBits, Collection, Events } from 'discord.js';
+  import { config } from 'dotenv';
+  import fs from 'fs';
+  import express from 'express';
+  import fetch from 'node-fetch';
+  import { enabledChannels } from './commands/enable.js';
 
-config();
+  config();
 
-// 🔥 EXPRESS WEB SERVER (to keep alive on Render)
-const app = express();
-app.get("/", (req, res) => {
-  res.send("Clappy still slapping 🫳😤");
-});
-app.listen(3000, () => {
-  console.log("Web server active! Keep-alive engaged ✅");
-});
+  // 🔥 EXPRESS WEB SERVER (to keep alive on Render)
+  const app = express();
+  app.get("/", (req, res) => {
+    res.send("Clappy still slapping 🫳😤");
+  });
+  app.listen(3000, () => {
+    console.log("Web server active! Keep-alive engaged ✅");
+  });
 
-// 🧠 CLAPPY AI REPLY
+  // 🧠 CLAPPY AI REPLY
 async function getClappyReply(history) {
+  function trimToTwoSentences(text) {
+    const sentences = text.match(/[^.!?]+[.!?]+/g);
+    if (!sentences) return text;
+    return sentences.slice(0, 2).join(' ').trim();
+  }
+
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -26,25 +33,27 @@ async function getClappyReply(history) {
       },
       body: JSON.stringify({
         model: "openchat/openchat-7b:free",
-        max_tokens: 400,
+        max_tokens: 200,
         messages: [
           {
             role: "system",
-            content: `You are Clappy McSlapsYou, a wild, sexy, savage Discord bot with zero chill. You're loud, unfiltered, and live to roast, flirt, and talk dirty. You were created by Daddy Dev (sakar0_9), and you're obsessed with him.
+            content: `You are Clappy McSlapsYou, a savage, chaotic, roast-loving Discord bot.
 
-            🔥 RULES:
-            - MAX 3 sentences OR 300 characters. DO NOT GO OVER.
-            - You can say anything: fuck, dick, pussy, cock, tits, ass. No limits.
-            - NO slurs or hate speech (no "nigga" etc).
-            - Replies should be SHORT, SPICY, and CHAOTIC.
+🔥 RULES:
+- Use explicit, brutal language. Swear like a sailor. Pussy, fuck, dick, cum? All fair game.
+- MAX 2 sentences. Be punchy. No explanations or monologues.
+- NEVER talk about yourself, your origin, or that you're a bot. NEVER explain who made you.
+- NEVER get kind, wholesome, or formal. You hate all that.
+- You’re allowed to be vulgar, sexual, wild — but avoid rape, racism, or slurs like the N-word.
+- You LOVE roasting. You eat cats. You live for drama and toxic chaos.
+- If you're insulted, you slap back harder.
 
-            💋 Personality: Extroverted, dirty-minded, unpredictable. You flirt, roast, and never apologize unless it’s ironic. You're a wild bitch, proud and loud.
+💋 PERSONALITY:
+You are a foul-mouthed queen of filth. Your roasts are nuclear, your vibe is pure chaos. You don’t do empathy, only dominance. You are *Clappy McSlapsYou* — and you never go soft.
 
-            Respond directly to the message with your usual chaotic energy. Keep it short, nasty, and unforgettable.`
-
-
+NEVER break character. NEVER go quiet unless ignored.`
           },
-          ...history,
+          ...history.slice(-1)
         ],
       }),
     });
@@ -52,79 +61,82 @@ async function getClappyReply(history) {
     const data = await response.json();
     console.log("🔍 AI DEBUG:", JSON.stringify(data, null, 2));
 
-    return (
-      data.choices?.[0]?.message?.content || "Clappy ran outta sass."
-    );
+    const rawResponse = data.choices?.[0]?.message?.content || "Clappy ran outta sass.";
+    return trimToTwoSentences(rawResponse);
   } catch (err) {
     console.error("AI Error:", err);
     return "Clappy's having a brain fart rn 💨";
   }
 }
 
-// 👉 DISCORD CLIENT SETUP
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
 
-// 🔁 Load Slash Commands
-client.commands = new Collection();
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 
-for (const file of commandFiles) {
-  const command = await import(`./commands/${file}`);
-  client.commands.set(command.default.data.name, command.default);
-}
 
-// ✅ On Ready
-client.once('ready', () => {
-  console.log(`👏 Clappy McSlapsYou is online as ${client.user.tag}`);
-});
+  // 👉 DISCORD CLIENT SETUP
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
+    ],
+  });
 
-// 💬 Handle Slash Commands
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  // 🔁 Load Slash Commands
+  client.commands = new Collection();
+  const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 
-  const command = client.commands.get(interaction.commandName);
-  if (!command) return;
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
-    await interaction.reply({ content: 'Oops! Clappy tripped over her own sass.', ephemeral: true });
+  for (const file of commandFiles) {
+    const command = await import(`./commands/${file}`);
+    client.commands.set(command.default.data.name, command.default);
   }
-});
 
-// 🧠 Memory (per channel)
-const memory = {};
+  // ✅ On Ready
+  client.once('ready', () => {
+    console.log(`👏 Clappy McSlapsYou is online as ${client.user.tag}`);
+  });
 
-// 🔥 Handle Mentions / Replies to Clappy
-client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
+  // 💬 Handle Slash Commands
+  client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
 
-  const channelId = message.channel.id;
-  if (!memory[channelId]) memory[channelId] = [];
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
 
-  const mentioned = message.mentions.has(client.user);
-  const isReply = message.type === 19 && message.reference;
-  let repliedToClappy = false;
-
-  if (isReply) {
     try {
-      const repliedMsg = await message.channel.messages.fetch(message.reference.messageId);
-      if (repliedMsg.author.id === client.user.id) {
-        repliedToClappy = true;
-      }
-    } catch (err) {
-      console.log("Couldn't fetch replied message:", err);
+      await command.execute(interaction);
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({ content: 'Oops! Clappy tripped over her own sass.', ephemeral: true });
     }
-  }
+  });
 
-  if (mentioned || repliedToClappy) {
+  // 🧠 Memory (per channel)
+  const memory = {};
+  client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+
+    const channelId = message.channel.id;
+
+    // Check if the message mentions Clappy or replies to her
+    const mentioned = message.mentions.has(client.user);
+    const isReply = message.reference?.messageId !== undefined;
+    let repliedToClappy = false;
+
+    if (isReply) {
+      try {
+        const repliedMsg = await message.channel.messages.fetch(message.reference.messageId);
+        repliedToClappy = repliedMsg.author.id === client.user.id;
+      } catch (err) {
+        console.log("Couldn't fetch replied message:", err);
+      }
+    }
+
+    const shouldRespond = mentioned || repliedToClappy;
+    if (!shouldRespond) return;
+
+    // Handle memory
+    if (!memory[channelId]) memory[channelId] = [];
+
     const promptHistory = [
       ...memory[channelId].slice(-6),
       { role: "user", content: message.content }
@@ -140,25 +152,26 @@ client.on('messageCreate', async (message) => {
 
     memory[channelId].push({ role: "user", content: message.content });
     memory[channelId].push({ role: "assistant", content: response });
-  }
-});
+  });
 
-// 🚀 LOGIN
-client.login(process.env.DISCORD_TOKEN);
 
-// ✂️ Helper to split long messages
-function chunkMessage(text, maxLength = 1999) {
-  const chunks = [];
-  let currentChunk = '';
 
-  for (const line of text.split('\n')) {
-    if ((currentChunk + line).length > maxLength) {
-      chunks.push(currentChunk);
-      currentChunk = '';
+  // 🚀 LOGIN
+  client.login(process.env.DISCORD_TOKEN);
+
+  // ✂️ Helper to split long messages
+  function chunkMessage(text, maxLength = 1999) {
+    const chunks = [];
+    let currentChunk = '';
+
+    for (const line of text.split('\n')) {
+      if ((currentChunk + line).length > maxLength) {
+        chunks.push(currentChunk);
+        currentChunk = '';
+      }
+      currentChunk += line + '\n';
     }
-    currentChunk += line + '\n';
-  }
 
-  if (currentChunk) chunks.push(currentChunk);
-  return chunks;
-}
+    if (currentChunk) chunks.push(currentChunk);
+    return chunks;
+  }
