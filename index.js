@@ -1,24 +1,24 @@
-//   import { Client, GatewayIntentBits, Collection, Events } from 'discord.js';
-//   import { config } from 'dotenv';
-//   import fs from 'fs';
-//   import express from 'express';
-//   import fetch from 'node-fetch';
-//   import { enabledChannels } from './commands/enable.js';
+  import { Client, GatewayIntentBits, Collection, Events } from 'discord.js';
+  import { config } from 'dotenv';
+  import fs from 'fs';
+  import express from 'express';
+  import fetch from 'node-fetch';
+  import { enabledChannels } from './commands/enable.js';
 
-//   config();
+  config();
 
-//   // 🔥 EXPRESS WEB SERVER (to keep alive on Render)
-//   const app = express();
-//   app.get("/", (req, res) => {
-//     res.send("Clappy still slapping 🫳😤");
-//   });
-//   app.listen(3000, () => {
-//     console.log("Web server active! Keep-alive engaged ✅");
-//   });
+  // 🔥 EXPRESS WEB SERVER (to keep alive on Render)
+  const app = express();
+  app.get("/", (req, res) => {
+    res.send("Clappy still slapping 🫳😤");
+  });
+  app.listen(3000, () => {
+    console.log("Web server active! Keep-alive engaged ✅");
+  });
 
-//   // 🧠 CLAPPY AI REPLY
-// async function getClappyReply(history) {
-//   function trimToTwoSentences(text) {
+  // 🧠 CLAPPY AI REPLY
+async function getClappyReply(history) {
+  function trimToTwoSentences(text) {
     const sentences = text.match(/[^.!?]+[.!?]+/g);
     if (!sentences) return text;
     return sentences.slice(0, 2).join(' ').trim();
